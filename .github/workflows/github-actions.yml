@@ -7,15 +7,15 @@ env:
   # SLACK_ICON: https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png
   SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
 
-# jobs:
-#   slackNotification:
-#     name: Slack-Notification
-#     runs-on: ubuntu-latest
+jobs:
+  slackNotification:
+    name: Slack-Notification
+    runs-on: ubuntu-latest
 
-#     steps:
-#     #-- Gitリポジトリの内容を取得 --#
-#     - name: Checkout
-#       uses: actions/checkout@v3
+    steps:
+    #-- Gitリポジトリの内容を取得 --#
+    - name: Checkout
+      uses: actions/checkout@v3
 
 #     #-- Slack通知 --#
 #     # 成功
