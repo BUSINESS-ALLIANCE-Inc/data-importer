@@ -1,6 +1,6 @@
-# name: Slack Notification
+name: Slack Notification
 
-# on: [push]
+on: [push]
 
 # env:
 #   SLACK_USERNAME: DeployBot
