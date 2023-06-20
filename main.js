@@ -82,11 +82,43 @@ async function main() {
           if (fy <= 2023) {
             for (; fy <= 2023; fy++) {
               // API呼び出しの処理
-              await callApi(result, parentKey, fy);
+              const apiData = await callApi(parentKey, fy);
+              // console.log(apiData);
+
+              // apiDataが存在する場合のみマージする
+              if (apiData && apiData.ticker) {
+
+                // apiDataの変換とマージ
+                const transformedData = {
+                  [ticker]: {
+                    [apiData.fiscal_year]: {
+                      fiscal_year: apiData.fiscal_year,
+                      fiscal_quarter: apiData.fiscal_quarter,
+                      end_date: apiData.end_date,
+                      market_capital: apiData.market_capital,
+                      net_sales: apiData.net_sales,
+                      operating_income: apiData.operating_income,
+                      pbr: apiData.pbr,
+                      roe: apiData.roe,
+                      employee_num: apiData.employee_num
+                    }
+                  }
+                };
+
+                // resultにマージする
+                if (!result[ticker]) {
+                  result[ticker] = {};
+                }
+                result[ticker] = {
+                  ...result[ticker],
+                  ...transformedData[ticker]
+                };
+              }
             }
           }
         }
       }
+      console.log(result);
     } else {
       // console.error('Error parsing source2:', err2);
     }
@@ -106,27 +138,69 @@ function canParse(data, options) {
   }
 }
 
-async function callApi(result, parentKey, fy) {
+async function callApi(parentKey, fy) {
   try {
-    console.log(11);
     const apiKey = 'WIWE5xnbk66CcBPOM5xk919vGq2lhp724AEMO2hR';
     const headers = {
       'x-api-key': apiKey
     };
 
+    const quarterResponse = await callQuarterApi(headers, parentKey, fy);
+    const dailyResponse = await callDailyApi(headers, parentKey, quarterResponse);
+
+    // quarterResponseとdailyResponseのデータを合体させる
+    const mergedData = {
+      ...quarterResponse,
+      ...dailyResponse
+    };
+    return mergedData;
+
+  } catch (error) {
+    // console.error(error);
+  }
+}
+
+async function callQuarterApi(headers, parentKey, fy) {
+  try {
     const params = {
       ticker: parentKey,
       fy,
       fq: 4,
-      subjects: 'ticker,fiscal_year,fiscal_quarter,end_date,market_capital,net_sales,operating_income,pbr,roe,employee_num'
+      subjects: 'ticker,fiscal_year,fiscal_quarter,end_date,net_sales,operating_income,roe,employee_num'
     };
 
     const quarter = await axios.get('https://api.buffett-code.com/api/v3/quarter', { headers, params });
-    console.log(quarter.data.data.end_date);
+    const quarterResult = {
+      ticker: quarter.data.data.ticker,
+      fiscal_year: quarter.data.data.fiscal_year,
+      fiscal_quarter: quarter.data.data.fiscal_quarter,
+      end_date: quarter.data.data.end_date,
+      net_sales: quarter.data.data.net_sales,
+      operating_income: quarter.data.data.operating_income,
+      roe: quarter.data.data.roe,
+      employee_num: quarter.data.data.employee_num
+    };
+    return quarterResult;
+  } catch (error) {
+    // console.error(error);
+  }
+}
 
-    const daily = await axios.get('https://api.buffett-code.com/api/v3/daily', { headers, ticker: quarter.data.data.ticker, date: quarter.data.data.end_date });
-    console.log(daily.data.data.market_capital);
+async function callDailyApi(headers, parentKey, quarterResponse) {
+  try {
+    const params = {
+      ticker: parentKey,
+      date: quarterResponse.end_date
+    };
 
+    const daily = await axios.get('https://api.buffett-code.com/api/v3/daily', { headers, params });
+    const dailyResult = {
+      ticker: daily.data.data.ticker,
+      market_capital: daily.data.data.market_capital,
+      pbr: daily.data.data.pbr,
+      end_date: daily.data.data.day
+    };
+    return dailyResult;
   } catch (error) {
     // console.error(error);
   }
