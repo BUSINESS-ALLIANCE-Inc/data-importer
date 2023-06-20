@@ -13,13 +13,8 @@ if (require.main === module) {
 }
 
 async function main() {
-  const source = path.join(__dirname, 'data', 'tickers.csv');
-  const writer = csvWriter();
-  const output = fs.createWriteStream(path.join(__dirname, 'data', 'full-year.csv'));
+  const source = path.join(__dirname, 'data', 'tickers_test.csv');
 
-  writer.pipe(output);
-
-  // sourceの処理
   const buffer = fs.readFileSync(source);
   const options = { escape: '\\' };
   const { ok, err } = canParse(buffer, options);
@@ -29,19 +24,25 @@ async function main() {
     for (const item of rows) {
       const ticker = item[0];
       for (let fy = START_YEAR; fy <= END_YEAR; fy++) {
-        // API呼び出しの処理
-        const apiData = await callApi(ticker, fy);
-        console.log(apiData);
-        if (apiData) {
-          writer.write(apiData);
+        for (let fq = 1; fq <= 4; fq++) {
+          const apiData = await callApi(ticker, fy, fq);
+          const stockPriceData = {
+            ticker: apiData.ticker,
+            fiscal_year: apiData.fiscal_year,
+            fiscal_quarter: apiData.fiscal_quarter,
+            end_date: apiData.end_date,
+            stock_price: apiData.market_capital / apiData.issued_share_num,
+          }
+          console.log(stockPriceData);
+          // if (apiData) {
+          //   writer.write(apiData);
+          // }
         }
       }
     }
   } else {
     // console.error(11, err);
   }
-
-  writer.end();
 }
 
 function canParse(data, options) {
@@ -55,14 +56,14 @@ function canParse(data, options) {
   }
 }
 
-async function callApi(ticker, fy) {
+async function callApi(ticker, fy, fq) {
   try {
     const apiKey = 'WIWE5xnbk66CcBPOM5xk919vGq2lhp724AEMO2hR';
     const headers = {
       'x-api-key': apiKey
     };
 
-    const quarterResponse = await callQuarterApi(headers, ticker, fy);
+    const quarterResponse = await callQuarterApi(headers, ticker, fy, fq);
     const dailyResponse = await callDailyApi(headers, ticker, quarterResponse);
 
     // quarterResponseとdailyResponseのデータを合体させる
@@ -71,19 +72,18 @@ async function callApi(ticker, fy) {
       ...dailyResponse
     };
     return mergedData;
-
   } catch (error) {
     return null;
   }
 }
 
-async function callQuarterApi(headers, ticker, fy) {
+async function callQuarterApi(headers, ticker, fy, fq) {
   try {
     const params = {
       ticker: ticker,
       fy: fy,
-      fq: 4,
-      subjects: 'ticker,fiscal_year,fiscal_quarter,end_date,net_sales,operating_income,roe,employee_num,non_current_assets,assets'
+      fq: fq,
+      subjects: 'ticker,fiscal_year,fiscal_quarter,end_date,issued_share_num'
     };
 
     const quarter = await axios.get('https://api.buffett-code.com/api/v3/ondemand/quarter', { headers, params });
@@ -92,13 +92,9 @@ async function callQuarterApi(headers, ticker, fy) {
       fiscal_year: quarter.data.data.fiscal_year,
       fiscal_quarter: quarter.data.data.fiscal_quarter,
       end_date: quarter.data.data.end_date,
-      net_sales: quarter.data.data.net_sales,
-      operating_income: quarter.data.data.operating_income,
-      roe: quarter.data.data.roe,
-      employee_num: quarter.data.data.employee_num,
-      non_current_assets: quarter.data.data.non_current_assets,
-      assets: quarter.data.data.assets
+      issued_share_num: quarter.data.data.issued_share_num,
     };
+
     return quarterResult;
   } catch (error) {
     return null;
@@ -118,7 +114,6 @@ async function callDailyApi(headers, ticker, quarterResponse, formattedEndDate =
     const dailyResult = {
       ticker: daily.data.data.ticker,
       market_capital: daily.data.data.market_capital,
-      pbr: daily.data.data.pbr,
       end_date: daily.data.data.day
     };
     return dailyResult;
