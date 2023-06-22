@@ -13,7 +13,9 @@ if (require.main === module) {
 }
 
 async function main() {
+  // 初期データのtickerをまとめたcsvファイルの読み込み
   const source = path.join(__dirname, 'data', 'tickers.csv');
+
   const writer = csvWriter();
   const output = fs.createWriteStream(path.join(__dirname, 'data', 'full-year.csv'));
 
@@ -28,6 +30,7 @@ async function main() {
     const rows = parse(buffer, options);
     for (const item of rows) {
       const ticker = item[0];
+      // 2005年から2022年までのデータを取得する
       for (let fy = START_YEAR; fy <= END_YEAR; fy++) {
         // API呼び出しの処理
         const apiData = await callApi(ticker, fy);
@@ -62,7 +65,10 @@ async function callApi(ticker, fy) {
       'x-api-key': apiKey
     };
 
+    // 1. quarter APIを呼び出す
     const quarterResponse = await callQuarterApi(headers, ticker, fy);
+
+    // 2. daily APIを呼び出す
     const dailyResponse = await callDailyApi(headers, ticker, quarterResponse);
 
     // quarterResponseとdailyResponseのデータを合体させる
@@ -122,7 +128,9 @@ async function callDailyApi(headers, ticker, quarterResponse, formattedEndDate =
       end_date: daily.data.data.day
     };
     return dailyResult;
+
   } catch (error) {
+    // もしデータが取得できなければ、前日のデータを取得する
     if (error.response && error.response.status === 404) {
       const endDate = new Date(date);
       endDate.setDate(endDate.getDate() - 1);

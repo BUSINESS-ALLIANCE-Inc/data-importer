@@ -6,6 +6,8 @@ const csvWriter = require('csv-write-stream');
 
 const START_YEAR = 2005;
 const END_YEAR = 2022;
+const START_FISCAL_QUARTER = 1;
+const END_FISCAL_QUARTER = 4;
 
 // このスクリプトが直接実行された場合のみ main 関数を呼び出す。
 if (require.main === module) {
@@ -13,8 +15,15 @@ if (require.main === module) {
 }
 
 async function main() {
+  // 初期データのtickerをまとめたcsvファイルの読み込み
   const source = path.join(__dirname, 'data', 'tickers_test.csv');
 
+  const writer = csvWriter();
+  const output = fs.createWriteStream(path.join(__dirname, 'data', 'stock_price.csv'));
+
+  writer.pipe(output);
+
+  // sourceの処理
   const buffer = fs.readFileSync(source);
   const options = { escape: '\\' };
   const { ok, err } = canParse(buffer, options);
@@ -23,26 +32,31 @@ async function main() {
     const rows = parse(buffer, options);
     for (const item of rows) {
       const ticker = item[0];
+      // 2005年から2022年までのデータを取得する
       for (let fy = START_YEAR; fy <= END_YEAR; fy++) {
-        for (let fq = 1; fq <= 4; fq++) {
+        // 1Qから4Qまでのデータを取得する
+        for (let fq = START_FISCAL_QUARTER; fq <= END_FISCAL_QUARTER; fq++) {
+          // API呼び出しの処理
           const apiData = await callApi(ticker, fy, fq);
           const stockPriceData = {
             ticker: apiData.ticker,
             fiscal_year: apiData.fiscal_year,
             fiscal_quarter: apiData.fiscal_quarter,
             end_date: apiData.end_date,
-            stock_price: apiData.market_capital / apiData.issued_share_num,
+            stock_price: apiData.market_capital / apiData.num_of_shares,
           }
-          console.log(stockPriceData);
-          // if (apiData) {
-          //   writer.write(apiData);
-          // }
+          // console.log(stockPriceData);
+          if (stockPriceData) {
+            writer.write(stockPriceData);
+          }
         }
       }
     }
   } else {
     // console.error(11, err);
   }
+
+  writer.end();
 }
 
 function canParse(data, options) {
@@ -63,7 +77,10 @@ async function callApi(ticker, fy, fq) {
       'x-api-key': apiKey
     };
 
+    // 1. quarter APIを呼び出す
     const quarterResponse = await callQuarterApi(headers, ticker, fy, fq);
+
+    // 2. daily APIを呼び出す
     const dailyResponse = await callDailyApi(headers, ticker, quarterResponse);
 
     // quarterResponseとdailyResponseのデータを合体させる
@@ -72,6 +89,7 @@ async function callApi(ticker, fy, fq) {
       ...dailyResponse
     };
     return mergedData;
+
   } catch (error) {
     return null;
   }
@@ -83,7 +101,7 @@ async function callQuarterApi(headers, ticker, fy, fq) {
       ticker: ticker,
       fy: fy,
       fq: fq,
-      subjects: 'ticker,fiscal_year,fiscal_quarter,end_date,issued_share_num'
+      subjects: 'ticker,fiscal_year,fiscal_quarter,end_date,num_of_shares'
     };
 
     const quarter = await axios.get('https://api.buffett-code.com/api/v3/ondemand/quarter', { headers, params });
@@ -92,7 +110,7 @@ async function callQuarterApi(headers, ticker, fy, fq) {
       fiscal_year: quarter.data.data.fiscal_year,
       fiscal_quarter: quarter.data.data.fiscal_quarter,
       end_date: quarter.data.data.end_date,
-      issued_share_num: quarter.data.data.issued_share_num,
+      num_of_shares: quarter.data.data.num_of_shares
     };
 
     return quarterResult;
@@ -111,13 +129,16 @@ async function callDailyApi(headers, ticker, quarterResponse, formattedEndDate =
     };
 
     const daily = await axios.get('https://api.buffett-code.com/api/v3/ondemand/daily', { headers, params });
+    console.log(daily.data.data);
     const dailyResult = {
       ticker: daily.data.data.ticker,
       market_capital: daily.data.data.market_capital,
       end_date: daily.data.data.day
     };
     return dailyResult;
+
   } catch (error) {
+    // もしデータが取得できなければ、前日のデータを取得する
     if (error.response && error.response.status === 404) {
       const endDate = new Date(date);
       endDate.setDate(endDate.getDate() - 1);
