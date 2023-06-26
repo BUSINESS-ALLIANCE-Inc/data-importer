@@ -16,7 +16,7 @@ if (require.main === module) {
 
 async function main() {
   // 初期データのtickerをまとめたcsvファイルの読み込み
-  const source = path.join(__dirname, 'data', 'tickers_test.csv');
+  const source = path.join(__dirname, 'data', 'tickers.csv');
 
   const writer = csvWriter();
   const output = fs.createWriteStream(path.join(__dirname, 'data', 'stock_price.csv'));
@@ -38,6 +38,9 @@ async function main() {
         for (let fq = START_FISCAL_QUARTER; fq <= END_FISCAL_QUARTER; fq++) {
           // API呼び出しの処理
           const apiData = await callApi(ticker, fy, fq);
+          if (!apiData) {
+            continue;
+          }
           const stockPriceData = {
             ticker: apiData.ticker,
             fiscal_year: apiData.fiscal_year,
@@ -45,8 +48,8 @@ async function main() {
             end_date: apiData.end_date,
             stock_price: apiData.market_capital / apiData.num_of_shares,
           }
-          // console.log(stockPriceData);
-          if (stockPriceData) {
+          console.log(stockPriceData);
+          if (stockPriceData && stockPriceData.stock_price) {
             writer.write(stockPriceData);
           }
         }
@@ -129,7 +132,6 @@ async function callDailyApi(headers, ticker, quarterResponse, formattedEndDate =
     };
 
     const daily = await axios.get('https://api.buffett-code.com/api/v3/ondemand/daily', { headers, params });
-    console.log(daily.data.data);
     const dailyResult = {
       ticker: daily.data.data.ticker,
       market_capital: daily.data.data.market_capital,
