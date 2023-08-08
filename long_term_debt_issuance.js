@@ -16,10 +16,10 @@ async function main() {
   // 初期データのtickerをまとめたcsvファイルの読み込み
   const source = path.join(__dirname, 'data', 'tickers.csv');
 
-  // const writer = csvWriter();
-  // const output = fs.createWriteStream(path.join(__dirname, 'data', 'long_term_loans_payable.csv'));
+  const writer = csvWriter();
+  const output = fs.createWriteStream(path.join(__dirname, 'data', 'long_term_debt_issuance.csv'));
 
-  // writer.pipe(output);
+  writer.pipe(output);
 
   // sourceの処理
   const buffer = fs.readFileSync(source);
@@ -35,16 +35,16 @@ async function main() {
         // API呼び出しの処理
         const apiData = await callApi(ticker, fy);
         console.log(apiData);
-        // if (apiData) {
-        //   writer.write(apiData);
-        // }
+        if (apiData) {
+          writer.write(apiData);
+        }
       }
     }
   } else {
     // console.error(11, err);
   }
 
-  // writer.end();
+  writer.end();
 }
 
 function canParse(data, options) {
@@ -60,7 +60,7 @@ function canParse(data, options) {
 
 async function callApi(ticker, fy) {
   try {
-    const apiKey = 'WIWE5xnbk66CcBPOM5xk919vGq2lhp724AEMO2hR';
+    const apiKey = 'XAO33p1bVm2jgB3lbSmP17CcViBrlltO5mhg0UYq';
     const headers = {
       'x-api-key': apiKey
     };
@@ -80,7 +80,7 @@ async function callQuarterApi(headers, ticker, fy) {
       ticker: ticker,
       fy: fy,
       fq: 4,
-      subjects: 'ticker,fiscal_year,fiscal_quarter,end_date,tangible_fixed_assets,long_term_loans_payable'
+      subjects: 'ticker,fiscal_year,fiscal_quarter,end_date,tangible_fixed_assets,long_term_debt_issuance'
     };
 
     const quarter = await axios.get('https://api.buffett-code.com/api/v3/ondemand/quarter', { headers, params });
@@ -90,7 +90,7 @@ async function callQuarterApi(headers, ticker, fy) {
       fiscal_quarter: quarter.data.data.fiscal_quarter,
       end_date: quarter.data.data.end_date,
       tangible_fixed_assets: quarter.data.data.tangible_fixed_assets,
-      long_term_loans_payable: quarter.data.data.long_term_loans_payable
+      long_term_debt_issuance: quarter.data.data.long_term_debt_issuance
     };
     return quarterResult;
   } catch (error) {
