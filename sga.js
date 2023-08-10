@@ -14,7 +14,7 @@ if (require.main === module) {
 
 async function main() {
   // 初期データのtickerをまとめたcsvファイルの読み込み
-  const source = path.join(__dirname, 'data', 'tickers_test.csv');
+  const source = path.join(__dirname, 'data', 'tickers.csv');
 
   const writer = csvWriter();
   const output = fs.createWriteStream(path.join(__dirname, 'data', 'sga.csv'));
@@ -60,8 +60,7 @@ function canParse(data, options) {
 
 async function callApi(ticker, fy) {
   try {
-    // const apiKey = 'XAO33p1bVm2jgB3lbSmP17CcViBrlltO5mhg0UYq';
-    const apiKey = 'sAJGq9JH193KiwnF947v74KnDYkO7z634LWQQfPY';
+    const apiKey = 'XAO33p1bVm2jgB3lbSmP17CcViBrlltO5mhg0UYq';
     const headers = {
       'x-api-key': apiKey
     };
@@ -77,14 +76,12 @@ async function callApi(ticker, fy) {
 
 async function callQuarterApi(headers, ticker, fy) {
   try {
-    console.log(1)
     const params = {
       ticker: ticker,
       fy: fy,
       fq: 4,
       subjects: 'ticker,fiscal_year,fiscal_quarter,end_date,sga'
     };
-    console.log(2, params)
 
     const quarter = await axios.get('https://api.buffett-code.com/api/v3/ondemand/quarter', { headers, params });
     const quarterResult = {
@@ -94,7 +91,6 @@ async function callQuarterApi(headers, ticker, fy) {
       end_date: quarter.data.data.end_date,
       sga: quarter.data.data.sga,
     };
-    console.log(3, quarterResult)
     return quarterResult;
   } catch (error) {
     return null;
