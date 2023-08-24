@@ -6,8 +6,6 @@ const csvWriter = require('csv-write-stream');
 
 const START_YEAR = 2005;
 const END_YEAR = 2022;
-const START_FISCAL_QUARTER = 1;
-const END_FISCAL_QUARTER = 4;
 
 // このスクリプトが直接実行された場合のみ main 関数を呼び出す。
 if (require.main === module) {
@@ -16,10 +14,10 @@ if (require.main === module) {
 
 async function main() {
   // 初期データのtickerをまとめたcsvファイルの読み込み
-  const source = path.join(__dirname, 'data', 'tickers_test.csv');
+  const source = path.join(__dirname, 'data', 'tickers.csv');
 
   const writer = csvWriter();
-  const output = fs.createWriteStream(path.join(__dirname, 'data', 'demo.csv'));
+  const output = fs.createWriteStream(path.join(__dirname, 'data', 'various_data.csv'));
 
   writer.pipe(output);
 
@@ -34,25 +32,13 @@ async function main() {
       const ticker = item[0];
       // 2005年から2022年までのデータを取得する
       for (let fy = START_YEAR; fy <= END_YEAR; fy++) {
-        // 1Qから4Qまでのデータを取得する
-        for (let fq = START_FISCAL_QUARTER; fq <= END_FISCAL_QUARTER; fq++) {
           // API呼び出しの処理
-          const apiData = await callApi(ticker, fy, fq);
+          const apiData = await callApi(ticker, fy);
           if (!apiData) {
             continue;
           }
-          const stockPriceData = {
-            ticker: apiData.ticker,
-            fiscal_year: apiData.fiscal_year,
-            fiscal_quarter: apiData.fiscal_quarter,
-            end_date: apiData.end_date,
-            stock_price: apiData.market_capital / apiData.num_of_shares,
-          }
-          // console.log(stockPriceData);
-          if (stockPriceData && stockPriceData.stock_price) {
-            writer.write(stockPriceData);
-          }
-        }
+          console.log(apiData);
+          writer.write(apiData);
       }
     }
   } else {
@@ -73,7 +59,7 @@ function canParse(data, options) {
   }
 }
 
-async function callApi(ticker, fy, fq) {
+async function callApi(ticker, fy) {
   try {
     const apiKey = 'XAO33p1bVm2jgB3lbSmP17CcViBrlltO5mhg0UYq';
     const headers = {
@@ -81,7 +67,7 @@ async function callApi(ticker, fy, fq) {
     };
 
     // 1. quarter APIを呼び出す
-    const quarterResponse = await callQuarterApi(headers, ticker, fy, fq);
+    const quarterResponse = await callQuarterApi(headers, ticker, fy);
 
     // 2. daily APIを呼び出す
     const dailyResponse = await callDailyApi(headers, ticker, quarterResponse);
@@ -91,7 +77,6 @@ async function callApi(ticker, fy, fq) {
       ...quarterResponse,
       ...dailyResponse
     };
-    console.log(88, mergedData)
     return mergedData;
 
   } catch (error) {
@@ -99,13 +84,13 @@ async function callApi(ticker, fy, fq) {
   }
 }
 
-async function callQuarterApi(headers, ticker, fy, fq) {
+async function callQuarterApi(headers, ticker, fy) {
   try {
     const params = {
       ticker: ticker,
       fy: fy,
-      fq: fq,
-      subjects: 'ticker,fiscal_year,fiscal_quarter,end_date,eps_actual'
+      fq: 4,
+      subjects: 'ticker,fiscal_year,fiscal_quarter,end_date,shareholders_equity,capital_stock,cost_of_sales,gross_profit,gross_margin,operating_margin,ex_net_sales,ex_operating_income,ex_ordinary_income,ex_net_income,real_roe,roa,roic,r_and_d_expenses,net_sales_per_employee,eps_actual'
     };
 
     const quarter = await axios.get('https://api.buffett-code.com/api/v3/ondemand/quarter', { headers, params });
@@ -114,9 +99,23 @@ async function callQuarterApi(headers, ticker, fy, fq) {
       fiscal_year: quarter.data.data.fiscal_year,
       fiscal_quarter: quarter.data.data.fiscal_quarter,
       end_date: quarter.data.data.end_date,
+      shareholders_equity: quarter.data.data.shareholders_equity,
+      capital_stock: quarter.data.data.capital_stock,
+      cost_of_sales: quarter.data.data.cost_of_sales,
+      gross_profit: quarter.data.data.gross_profit,
+      gross_margin: quarter.data.data.gross_margin,
+      operating_margin: quarter.data.data.operating_margin,
+      ex_net_sales: quarter.data.data.ex_net_sales,
+      ex_operating_income: quarter.data.data.ex_operating_income,
+      ex_ordinary_income: quarter.data.data.ex_ordinary_income,
+      ex_net_income: quarter.data.data.ex_net_income,
+      real_roe: quarter.data.data.real_roe,
+      roa: quarter.data.data.roa,
+      roic: quarter.data.data.roic,
+      r_and_d_expenses: quarter.data.data.r_and_d_expenses,
+      net_sales_per_employee: quarter.data.data.net_sales_per_employee,
       eps_actual: quarter.data.data.eps_actual
     };
-    console.log(44, quarterResult)
 
     return quarterResult;
   } catch (error) {
@@ -137,7 +136,6 @@ async function callDailyApi(headers, ticker, quarterResponse, formattedEndDate =
     const dailyResult = {
       ticker: daily.data.data.ticker,
       per_pbr: daily.data.data.per_pbr,
-      end_date: daily.data.data.day
     };
     return dailyResult;
 
